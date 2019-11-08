@@ -13,7 +13,7 @@ datagen = ImageDataGenerator(
     zoom_range=0.2,
     horizontal_flip=True,
     fill_mode='nearest')
-img = load_img('train/elephants/adventure-1822636_640.jpg')  # this is a PIL image
+img = load_img('../data/pawn/.jpg')  # this is a PIL image
 x = img_to_array(img)  # this is a Numpy array with shape (300, 300, 3)
 x = x.reshape((1,) + x.shape)  # this is a Numpy array with shape (1, 300, 300, 3)
 x.shape
