@@ -18,6 +18,7 @@ This model builds on CUDA enabled NVIDIA GPUs with the following software requir
 CPU Training takes ~13 hours @ 50 epochs.
 '''
 
+chess_piece_types = ['bishop', 'rook', 'pawn', 'knight']
 
 class Model:
     def __init__(self):
@@ -35,12 +36,13 @@ class Model:
         self.model.add(Activation('relu'))
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
 
+        self.model.add(Dropout(0.25))
         self.model.add(Flatten())
         self.model.add(Dense(64))
         self.model.add(Activation('relu'))
         self.model.add(Dropout(0.5))
-        self.model.add(Dense(1))
-        self.model.add(Activation('sigmoid'))
+        self.model.add(Dense(len(chess_piece_types)))  # Equal to number of classes
+        self.model.add(Activation('softmax'))
 
         # TODO: Evaluate other optimizers
         # opt = SGD(lr=0.01)
@@ -52,36 +54,30 @@ class Model:
     def __load_weights(self, weights_file):
         self.model.load_weights(weights_file)
 
-    def train(self, batch_size=16, epochs=50):
+    def train(self, batch_size=16, epochs=10):
         # this is the augmentation configuration we will use for training
         train_datagen = ImageDataGenerator(
             rescale=1. / 255,
             shear_range=0.2,
-            zoom_range=0.2,
-            rotation_range=10,
+            rotation_range=180,
             height_shift_range=0.1,
             width_shift_range=0.1,
             horizontal_flip=True,
             vertical_flip=False)
 
-        # this is the augmentation configuration we will use for testing:
-        # only rescaling
-        test_datagen = ImageDataGenerator(rescale=1. / 255)
+        test_datagen = ImageDataGenerator(rescale=1./255)
 
-        # this is a generator that will read pictures found in subfolders of 'data/train', and indefinitely generate
-        # batches of augmented image data
         train_generator = train_datagen.flow_from_directory(
-            'data/train',  # this is the target directory
-            target_size=(300, 300),  # all images will be resized to 300x300
+            'data/train',
+            target_size=(300, 300),
             batch_size=batch_size,
-            class_mode='binary')  # since we use binary_crossentropy loss, we need binary labels
+            class_mode='categorical')
 
-        # this is a similar generator, for validation data
         validation_generator = test_datagen.flow_from_directory(
             'data/validation',
             target_size=(300, 300),
             batch_size=batch_size,
-            class_mode='binary')
+            class_mode='categorical')
 
         self.model.fit_generator(
             train_generator,
