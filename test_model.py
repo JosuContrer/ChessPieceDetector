@@ -7,3 +7,4 @@ if __name__ == '__main__':
     #     print('WARNING: No available GPUs found by Keras')
     m = Model()
     m.train()
+    # m.test('10_epochs.h5', 'data/train/bishop/20191108_142519.jpg')

@@ -1,11 +1,23 @@
+import os
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D
-from keras.layers import Activation, Dropout, Flatten, Dense
+from keras.layers import Dropout, Flatten, Dense
 from keras_preprocessing.image import ImageDataGenerator
+from keras.optimizers import Adadelta
 from keras.constraints import max_norm
-from keras.optimizers import SGD
+from keras.losses import categorical_crossentropy
 
 '''
+Model instance class with training and testing methods. Classifies chess pieces in images from 
+data/train/<type> where type is one of chess_piece_types.
+
+Parameters and model structure example:
+https://github.com/keras-team/keras/blob/master/examples/mnist_cnn.py
+Image preprocessing techniques for a small dataset from:
+https://medium.com/@ksusorokina/image-classification-with-convolutional-neural-networks-496815db12a8
+Image classification techniques in Keras:
+https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html
+
 For GPU support, tensorflow>=1.15.* must be installed, otherwise GPU packages can be installed with 
 `pip install tensorflow-gpu==1.15`
 
@@ -14,48 +26,48 @@ This model builds on CUDA enabled NVIDIA GPUs with the following software requir
 - CUDA® Toolkit —TensorFlow supports CUDA 10.0 (TensorFlow >= 1.13.0)
     - CUPTI ships with the CUDA Toolkit.
 - cuDNN SDK (>= 7.4.1)
-
-CPU Training takes ~13 hours @ 50 epochs.
 '''
 
 chess_piece_types = ['bishop', 'rook', 'pawn', 'knight']
+num_classes = len(chess_piece_types)
+
 
 class Model:
     def __init__(self):
         self.model = Sequential()
-        self.model.add(Conv2D(32, (3, 3), input_shape=(300, 300, 3), kernel_constraint=max_norm(2.),
-                              bias_constraint=max_norm(2.)))
-        self.model.add(Activation('relu'))
+        # TODO: Try with two 32-filter convolution + pooling layer iterations
+        # self.model.add(Conv2D(32,
+        #                       (3, 3),
+        #                       input_shape=(300, 300, 3),
+        #                       kernel_constraint=max_norm(2.),
+        #                       bias_constraint=max_norm(2.),
+        #                       activation='relu'))
+        # self.model.add(MaxPooling2D(pool_size=(2, 2)))
+
+        self.model.add(Conv2D(32,
+                              (3, 3),
+                              kernel_constraint=max_norm(2.),
+                              bias_constraint=max_norm(2.),
+                              activation='relu'))
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
 
-        self.model.add(Conv2D(32, (3, 3), kernel_constraint=max_norm(2.), bias_constraint=max_norm(2.)))
-        self.model.add(Activation('relu'))
-        self.model.add(MaxPooling2D(pool_size=(2, 2)))
-
-        self.model.add(Conv2D(64, (3, 3), kernel_constraint=max_norm(2.), bias_constraint=max_norm(2.)))
-        self.model.add(Activation('relu'))
+        self.model.add(Conv2D(64,
+                              (3, 3),
+                              kernel_constraint=max_norm(2.),
+                              bias_constraint=max_norm(2.),
+                              activation='relu'))
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
 
         self.model.add(Dropout(0.25))
         self.model.add(Flatten())
-        self.model.add(Dense(64))
-        self.model.add(Activation('relu'))
+        self.model.add(Dense(64, activation='relu'))
         self.model.add(Dropout(0.5))
-        self.model.add(Dense(len(chess_piece_types)))  # Equal to number of classes
-        self.model.add(Activation('softmax'))
+        self.model.add(Dense(num_classes, actionation='softmax'))
 
         # TODO: Evaluate other optimizers
-        # opt = SGD(lr=0.01)
-        self.model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-
-    def __save_weights(self, weights_file):
-        self.model.save_weights(weights_file)
-
-    def __load_weights(self, weights_file):
-        self.model.load_weights(weights_file)
+        self.model.compile(loss=categorical_crossentropy, optimizer=Adadelta, metrics=['accuracy'])
 
     def train(self, batch_size=16, epochs=10):
-        # this is the augmentation configuration we will use for training
         train_datagen = ImageDataGenerator(
             rescale=1. / 255,
             shear_range=0.2,
@@ -65,7 +77,7 @@ class Model:
             horizontal_flip=True,
             vertical_flip=False)
 
-        test_datagen = ImageDataGenerator(rescale=1./255)
+        test_datagen = ImageDataGenerator(rescale=1. / 255)
 
         train_generator = train_datagen.flow_from_directory(
             'data/train',
@@ -88,5 +100,13 @@ class Model:
 
         self.__save_weights('%s_epochs.h5' % epochs)
 
-    def test(self, weights_file, img):
-        self.__load_weights(weights_file)
+    def test(self, weights_file, img, classification):
+        if self.model.weights is None:
+            self.__load_weights(weights_file)
+        self.model.evaluate()
+
+    def __save_weights(self, weights_file):
+        self.model.save_weights(os.path.join('weights', weights_file))
+
+    def __load_weights(self, weights_file):
+        self.model.load_weights(os.path.join('weights', weights_file))
